@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#080c15">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="FinFlow - แอพพลิเคชันบันทึกรายรับ-รายจ่าย เชื่อมต่อ Google Sheets สำหรับสมาร์ทโฟน">
+  <title>FinFlow Mobile - บันทึกรายรับ-รายจ่าย</title>
+
+  <!-- Google Fonts: Prompt & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Mobile CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  
+  <div class="app-container">
+    
+    <!-- Top Mobile App Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-logo-badge">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+        <div class="header-info">
+          <div class="header-title">
+            Fin<span style="color: var(--blue-light);">Flow</span> <span style="color: var(--green-primary);">.app</span>
+          </div>
+          <span class="header-subtitle" id="headerSubtitle">บันทึกรายรับ-รายจ่าย</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Sync Status Dot -->
+        <button type="button" class="btn-header-icon" id="btnHeaderSync" title="สถานะการเชื่อมต่อ" style="position: relative;">
+          <i class="fa-solid fa-table-cells"></i>
+          <span class="sync-dot-badge offline" id="syncDot"></span>
+        </button>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-header-icon" id="themeToggleBtn" title="เปลี่ยนโหมดมืด/สว่าง">
+          <i class="fa-solid fa-moon" id="themeIcon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Period & Date Selector Ribbon -->
+    <section class="period-ribbon" id="periodRibbon">
+      <div class="period-pill-group">
+        <button type="button" class="period-pill active" data-period="month">รายเดือน</button>
+        <button type="button" class="period-pill" data-period="today">รายวัน</button>
+        <button type="button" class="period-pill" data-period="all">ทั้งหมด</button>
+      </div>
+
+      <div class="date-navigator">
+        <button type="button" class="date-nav-arrow" id="prevDateBtn">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span class="date-nav-label" id="currentDateLabel">กำลังโหลด...</span>
+        <button type="button" class="date-nav-arrow" id="nextDateBtn">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 1: HOME / DASHBOARD (หน้าหลัก & ภาพรวม)
+         ==================================================================== -->
+    <main class="app-view active" id="viewHome">
+      
+      <!-- Hero Balance Wallet Card -->
+      <div class="wallet-hero-card">
+        <div class="wallet-hero-header">
+          <span class="wallet-hero-title">
+            <i class="fa-solid fa-shield-halved"></i> ยอดคงเหลือสุทธิ
+          </span>
+          <span class="wallet-hero-badge" id="heroSavingsBadge">
+            <i class="fa-solid fa-arrow-trend-up"></i> ออม 0%
+          </span>
+        </div>
+
+        <div class="wallet-hero-amount" id="heroTotalBalance">฿0</div>
+
+        <div class="wallet-stats-row">
+          <div class="wallet-stat-item">
+            <div class="wallet-stat-icon inc">
+              <i class="fa-solid fa-arrow-down"></i>
+            </div>
+            <div class="wallet-stat-content">
+              <span class="wallet-stat-label">รายรับ (Income)</span>
+              <span class="wallet-stat-val text-green" id="heroTotalIncome">฿0</span>
+            </div>
+          </div>
+
+          <div class="wallet-stat-item">
+            <div class="wallet-stat-icon exp">
+              <i class="fa-solid fa-arrow-up"></i>
+            </div>
+            <div class="wallet-stat-content">
+              <span class="wallet-stat-label">รายจ่าย (Expense)</span>
+              <span class="wallet-stat-val text-rose" id="heroTotalExpense">฿0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons (+ Income / - Expense) -->
+      <div class="quick-action-bar">
+        <button type="button" class="quick-btn btn-add-inc" id="quickAddIncomeBtn">
+          <i class="fa-solid fa-plus-circle"></i> + เพิ่มรายรับ
+        </button>
+        <button type="button" class="quick-btn btn-add-exp" id="quickAddExpenseBtn">
+          <i class="fa-solid fa-minus-circle"></i> - เพิ่มรายจ่าย
+        </button>
+      </div>
+
+      <!-- Monthly Budget Tracker Mini Card -->
+      <div class="app-card">
+        <div class="app-card-header">
+          <span class="app-card-title">
+            <i class="fa-solid fa-bullseye text-blue"></i> งบประมาณเดือนนี้
+          </span>
+          <span style="font-size: 0.78rem; color: var(--text-muted);">
+            เหลือ <strong class="text-green" id="homeBudgetRemaining">฿0</strong>
+          </span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="homeBudgetBar" style="width: 0%;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem;">
+          <span>ใช้ไป: <strong id="homeBudgetSpent">฿0</strong></span>
+          <span>งบทั้งหมด: <strong id="homeBudgetTotal">฿25,000</strong></span>
+        </div>
+      </div>
+
+      <!-- Recent Transactions Section -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin: 1.1rem 0 0.5rem 0;">
+        <span style="font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem;">
+          <i class="fa-solid fa-clock-rotate-left text-blue"></i> รายการล่าสุด
+        </span>
+        <button type="button" class="period-pill" id="btnSeeAllTx" style="font-size: 0.75rem; color: var(--blue-light);">
+          ดูทั้งหมด <i class="fa-solid fa-chevron-right" style="font-size: 0.65rem;"></i>
+        </button>
+      </div>
+
+      <div id="homeRecentTxList">
+        <!-- Rendered dynamically -->
+      </div>
+    </main>
+
+    <!-- ====================================================================
+         VIEW 2: TRANSACTIONS LIST (รายการทั้งหมด & ค้นหา)
+         ==================================================================== -->
+    <section class="app-view" id="viewTransactions">
+      <!-- Search Field -->
+      <div class="mobile-search-bar">
+        <div class="search-field-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="mobileSearchInput" class="search-field" placeholder="ค้นหารายการ, หมวดหมู่, โน้ต...">
+        </div>
+      </div>
+
+      <!-- Filter Chips -->
+      <div class="filter-chip-row" id="filterChipRow">
+        <button type="button" class="filter-chip active" data-type="all">ทั้งหมด</button>
+        <button type="button" class="filter-chip" data-type="expense">เฉพาะรายจ่าย (-)</button>
+        <button type="button" class="filter-chip" data-type="income">เฉพาะรายรับ (+)</button>
+      </div>
+
+      <!-- Full Grouped Transaction List -->
+      <div id="fullTransactionList">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 3: ANALYTICS & CHARTS (สถิติและกราฟ)
+         ==================================================================== -->
+    <section class="app-view" id="viewAnalytics">
+      <!-- Trend Bar Chart Card -->
+      <div class="app-card">
+        <div class="app-card-header">
+          <span class="app-card-title">
+            <i class="fa-solid fa-chart-column text-blue"></i> แนวโน้มรายรับ - รายจ่าย
+          </span>
+        </div>
+        <div style="position: relative; width: 100%; height: 200px;">
+          <canvas id="trendChartCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Category Breakdown Doughnut Card -->
+      <div class="app-card">
+        <div class="app-card-header">
+          <span class="app-card-title">
+            <i class="fa-solid fa-chart-pie text-green"></i> สัดส่วนหมวดหมู่
+          </span>
+          <div style="display: flex; gap: 0.25rem;">
+            <button type="button" id="catToggleExpense" class="period-pill active" style="padding: 0.15rem 0.55rem; font-size: 0.72rem;">รายจ่าย</button>
+            <button type="button" id="catToggleIncome" class="period-pill" style="padding: 0.15rem 0.55rem; font-size: 0.72rem;">รายรับ</button>
+          </div>
+        </div>
+        <div style="position: relative; width: 100%; height: 180px;">
+          <canvas id="categoryChartCanvas"></canvas>
+        </div>
+        <!-- Breakdown list -->
+        <div id="analyticsCategoryList" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 4: SETTINGS & GOOGLE SHEETS (ตั้งค่า & ฐานข้อมูล)
+         ==================================================================== -->
+    <section class="app-view" id="viewSettings">
+      
+      <!-- Cloud Sync & Data Connection Card -->
+      <div class="settings-section-card">
+        <h3 class="settings-section-title">
+          <i class="fa-solid fa-cloud text-green"></i> การเชื่อมต่อและซิงค์ข้อมูล
+        </h3>
+        
+        <!-- Connected Status Badge Box -->
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 0.85rem; margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--green-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="fa-solid fa-cloud-check"></i>
+            </div>
+            <div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: var(--green-light);">เชื่อมต่อคลาวด์แล้ว</div>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">บันทึกข้อมูลแบบเรียลไทม์</div>
+            </div>
+          </div>
+          <span style="font-size: 0.72rem; padding: 0.2rem 0.5rem; background: rgba(16, 185, 129, 0.2); border-radius: var(--radius-full); color: #34d399; font-weight: 700;">
+            ออนไลน์ 🟢
+          </span>
+        </div>
+
+        <form id="mobileSettingsForm">
+          <!-- Hidden Inputs for URL and Sheet ID to maintain background state seamlessly -->
+          <input type="hidden" id="sheetUrlInput" value="https://script.google.com/macros/s/AKfycbzYX4ldui9Z0I376L3MnVs3qcFMrdtPtzFnt7IlWkybkvR6q2QOh25lixJFlLLspA/exec">
+          <input type="hidden" id="sheetIdInput" value="1RQPn-KONunwHs9UKsZEhXawROumaIN9AafxJMNsQ6AA">
+
+          <div class="form-group-mb" style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="autoSyncCheck" style="width: 18px; height: 18px;" checked>
+            <label for="autoSyncCheck" style="font-size: 0.82rem; font-weight: 600;">ซิงค์อัตโนมัติเมื่อบันทึก/ลบรายการ</label>
+          </div>
+
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <button type="button" class="btn-cancel-main" id="btnTestConn" style="flex: 1; font-size: 0.78rem; padding: 0.6rem;">
+              <i class="fa-solid fa-link"></i> ทดสอบ
+            </button>
+            <button type="button" class="btn-cancel-main" id="btnSyncAll" style="flex: 1; font-size: 0.78rem; padding: 0.6rem;">
+              <i class="fa-solid fa-cloud-arrow-up"></i> ส่งข้อมูล
+            </button>
+            <button type="button" class="btn-cancel-main" id="btnFetchAll" style="flex: 1; font-size: 0.78rem; padding: 0.6rem;">
+              <i class="fa-solid fa-cloud-arrow-down"></i> ดึงข้อมูล
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Budget Setting Card -->
+      <div class="settings-section-card">
+        <h3 class="settings-section-title">
+          <i class="fa-solid fa-wallet text-blue"></i> งบประมาณรายเดือน
+        </h3>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="number" id="budgetLimitInput" class="input-styled" placeholder="25000">
+          <button type="button" class="btn-submit-main" id="btnSaveBudget" style="flex: 0 0 90px; padding: 0.6rem;">
+            บันทึก
+          </button>
+        </div>
+      </div>
+
+      <!-- Backup & Data Card -->
+      <div class="settings-section-card">
+        <h3 class="settings-section-title">
+          <i class="fa-solid fa-database text-green"></i> จัดการและสำรองข้อมูล
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <button type="button" class="btn-cancel-main" id="btnMobileExportCSV" style="display: flex; justify-content: center; gap: 0.4rem;">
+            <i class="fa-solid fa-file-csv text-green"></i> ส่งออกเป็น CSV
+          </button>
+          <button type="button" class="btn-cancel-main" id="btnMobileExportJSON" style="display: flex; justify-content: center; gap: 0.4rem;">
+            <i class="fa-solid fa-code text-blue"></i> ส่งออกไฟล์สำรอง JSON
+          </button>
+          
+          <label class="btn-cancel-main" style="display: flex; justify-content: center; gap: 0.4rem; cursor: pointer;">
+            <i class="fa-solid fa-file-import text-blue"></i> นำเข้าไฟล์ JSON Backup
+            <input type="file" id="mobileJsonFile" accept=".json" style="display: none;">
+          </label>
+
+          <div style="display: flex; gap: 0.4rem; margin-top: 0.35rem;">
+            <button type="button" class="btn-cancel-main" id="btnMobileSeedDemo" style="flex: 1; font-size: 0.78rem;">
+              <i class="fa-solid fa-vial"></i> โหลดข้อมูลตัวอย่าง
+            </button>
+            <button type="button" class="btn-cancel-main" id="btnMobileClearAll" style="flex: 1; font-size: 0.78rem; color: var(--rose-primary);">
+              <i class="fa-solid fa-trash-can"></i> ล้างข้อมูลทั้งหมด
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ====================================================================
+         BOTTOM NAVIGATION BAR (APP BAR)
+         ==================================================================== -->
+    <nav class="bottom-nav">
+      <!-- Nav Item 1: Home -->
+      <button type="button" class="nav-item active" data-target="viewHome" id="navHome">
+        <i class="fa-solid fa-house"></i>
+        <span>สรุป</span>
+      </button>
+
+      <!-- Nav Item 2: Transactions -->
+      <button type="button" class="nav-item" data-target="viewTransactions" id="navTransactions">
+        <i class="fa-solid fa-list-ul"></i>
+        <span>รายการ</span>
+      </button>
+
+      <!-- Center Raised Floating Plus Action Button -->
+      <div class="nav-fab-wrap">
+        <button type="button" class="nav-fab" id="centerFabBtn" title="บันทึกรายการ">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+      <!-- Nav Item 3: Analytics -->
+      <button type="button" class="nav-item" data-target="viewAnalytics" id="navAnalytics">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>สถิติ</span>
+      </button>
+
+      <!-- Nav Item 4: Settings -->
+      <button type="button" class="nav-item" data-target="viewSettings" id="navSettings">
+        <i class="fa-solid fa-gear"></i>
+        <span>ตั้งค่า</span>
+      </button>
+    </nav>
+
+    <!-- Toast Container -->
+    <div class="toast-box-container" id="toastContainer"></div>
+
+    <!-- ====================================================================
+         BOTTOM SHEET MODAL: ADD / EDIT TRANSACTION
+         ==================================================================== -->
+    <div class="sheet-overlay" id="txSheetOverlay">
+      <div class="sheet-container">
+        <div class="sheet-handle-bar"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="txSheetTitle">
+            <i class="fa-solid fa-plus-circle text-blue"></i> บันทึกรายการใหม่
+          </h3>
+          <button type="button" class="btn-header-icon" id="btnCloseTxSheet">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <form id="mobileTxForm">
+          <div class="sheet-body">
+            
+            <!-- Type Toggle Switch (Expense vs Income) -->
+            <input type="hidden" id="formTxType" value="expense">
+            <div class="type-toggle-switch">
+              <button type="button" class="type-toggle-btn active exp" id="btnToggleExp">
+                <i class="fa-solid fa-arrow-up"></i> รายจ่าย (Expense)
+              </button>
+              <button type="button" class="type-toggle-btn" id="btnToggleInc">
+                <i class="fa-solid fa-arrow-down"></i> รายรับ (Income)
+              </button>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="form-group-mb">
+              <label class="field-label" for="formTxAmount">จำนวนเงิน (บาท) *</label>
+              <input type="number" id="formTxAmount" class="input-styled" placeholder="0.00" step="any" min="0.01" required style="font-size: 1.4rem; font-weight: 800;">
+              
+              <!-- Quick Add Chips -->
+              <div class="quick-amount-row">
+                <button type="button" class="chip-amount" data-add="50">+50</button>
+                <button type="button" class="chip-amount" data-add="100">+100</button>
+                <button type="button" class="chip-amount" data-add="500">+500</button>
+                <button type="button" class="chip-amount" data-add="1000">+1,000</button>
+              </div>
+            </div>
+
+            <!-- Category Grid -->
+            <div class="form-group-mb">
+              <label class="field-label">หมวดหมู่ *</label>
+              <input type="hidden" id="formTxCategory" value="">
+              <div class="category-picker-mobile" id="mobileCatPicker">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Date & Time Row -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem;">
+              <div>
+                <label class="field-label" for="formTxDate">วันที่ *</label>
+                <input type="date" id="formTxDate" class="input-styled" required>
+              </div>
+              <div>
+                <label class="field-label" for="formTxTime">เวลา</label>
+                <input type="time" id="formTxTime" class="input-styled">
+              </div>
+            </div>
+
+            <!-- Account Type -->
+            <div class="form-group-mb">
+              <label class="field-label" for="formTxAccount">ช่องทางการเงิน</label>
+              <select id="formTxAccount" class="input-styled">
+                <option value="เงินสด">💵 เงินสด (Cash)</option>
+                <option value="บัญชีธนาคาร">🏦 บัญชีธนาคาร (Bank Transfer)</option>
+                <option value="พร้อมเพย์">📱 พร้อมเพย์ (PromptPay)</option>
+                <option value="บัตรเครดิต">💳 บัตรเครดิต (Credit Card)</option>
+                <option value="TrueMoney">🧧 TrueMoney Wallet</option>
+              </select>
+            </div>
+
+            <!-- Note / Memo -->
+            <div class="form-group-mb">
+              <label class="field-label" for="formTxNote">บันทึกช่วยจำ (Note)</label>
+              <input type="text" id="formTxNote" class="input-styled" placeholder="เช่น ค่าข้าวเที่ยง, เติมน้ำมัน ฯลฯ">
+            </div>
+
+            <!-- Tags -->
+            <div class="form-group-mb">
+              <label class="field-label" for="formTxTags">แท็ก (คั่นด้วยจุลภาค)</label>
+              <input type="text" id="formTxTags" class="input-styled" placeholder="เช่น ประจำ, งาน, ท่องเที่ยว">
+            </div>
+
+          </div>
+
+          <div class="sheet-footer">
+            <button type="button" class="btn-cancel-main" id="btnCancelTxSheet">ยกเลิก</button>
+            <button type="submit" class="btn-submit-main">
+              <i class="fa-solid fa-check"></i> บันทึกข้อมูล
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         BOTTOM SHEET MODAL: TRANSACTION DETAILS (ดูรายละเอียด / แก้ไข / ลบ)
+         ==================================================================== -->
+    <div class="sheet-overlay" id="detailSheetOverlay">
+      <div class="sheet-container">
+        <div class="sheet-handle-bar"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title">
+            <i class="fa-solid fa-receipt text-blue"></i> รายละเอียดธุรกรรม
+          </h3>
+          <button type="button" class="btn-header-icon" id="btnCloseDetailSheet">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="sheet-body" id="detailSheetContent">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <div class="sheet-footer">
+          <button type="button" class="btn-cancel-main" id="btnDeleteFromDetail" style="color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);">
+            <i class="fa-solid fa-trash-can"></i> ลบรายการ
+          </button>
+          <button type="button" class="btn-submit-main" id="btnEditFromDetail">
+            <i class="fa-solid fa-pen-to-square"></i> แก้ไขรายการ
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
